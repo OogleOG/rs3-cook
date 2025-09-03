@@ -3,15 +3,14 @@ plugins {
     `maven-publish`
 }
 
-group = "net.botwithus"
-version = "1.0-SNAPSHOT"
+group = "net.botwithus.rs3cook"
+version = "1.0.0"
 
 repositories {
     mavenLocal()
     mavenCentral()
-    maven {
-        setUrl("https://nexus.botwithus.net/repository/maven-releases/")
-    }
+    maven { url = uri("https://jitpack.io") }
+    maven { url = uri("https://nexus.botwithus.net/repository/maven-snapshots/") }
 }
 
 java {
@@ -20,66 +19,104 @@ java {
     }
 }
 
-configurations {
-    create("includeInJar") {
-        this.isTransitive = false
-    }
-}
-
 tasks.withType<JavaCompile> {
+    // keep only if you actually need preview features
     options.compilerArgs.add("--enable-preview")
-    sourceCompatibility = "20"
-    targetCompatibility = "20"
+} /** Libs you want to *embed* (unzipped) inside each jar (simple shading). */
+val includeInJar by configurations.creating {
+    isTransitive = false
 }
 
 dependencies {
-    // BotWithUs API dependencies
-    implementation("net.botwithus.rs3:botwithus-api:1.+")
-    implementation("net.botwithus.xapi.public:api:1.+")
-    "includeInJar"("net.botwithus.xapi.public:api:1.+")
+    // Compile against BWU APIs (do NOT embed these)
+    compileOnly("net.botwithus.rs3:botwithus-api:1.0.0-SNAPSHOT")
+    compileOnly("net.botwithus.xapi.public:api:1.0.0-SNAPSHOT")
 
-    // JSON handling for configuration
+    // Local alternative if snapshots don't resolve:
+    // compileOnly(files("libs/rs3-api.jar"))
+    // compileOnly(files("libs/botwithusx-api.jar"))
+
     implementation("com.google.code.gson:gson:2.10.1")
-
-    // Testing dependencies
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.9.2")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.9.2")
 }
 
-val copyJar by tasks.register<Copy>("copyJar") {
-    from("build/libs/")
-    into("${System.getProperty("user.home")}\\BotWithUs\\scripts\\local\\")
-    include("*.jar")
+tasks.test { useJUnitPlatform() }
 
-    doLast {
-        println("Copied JAR to: ${System.getProperty("user.home")}\\BotWithUs\\scripts\\local\\")
-    }
-}
-
-tasks.named<Jar>("jar") {
-    from({
-        configurations["includeInJar"].map { zipTree(it) }
-    })
-
+/** Helper to embed includeInJar libs into a Jar task. */
+fun Jar.embedIncludeInJar() {
+    from(provider { includeInJar.resolve().map { zipTree(it) } })
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    finalizedBy(copyJar)
+}
 
-    manifest {
-        attributes(
-            "Main-Class" to "net.botwithus.CookingScriptSimple",
-            "Implementation-Title" to "RS3 Cooking Script",
-            "Implementation-Version" to version,
-            "Implementation-Vendor" to "BotWithUs Community"
-        )
+/** Declare your bots here: baseName = jar base name; iniPath = where the bot's script.ini lives. */
+data class Bot(val displayName: String, val baseName: String, val iniPath: String)
+
+val bots = listOf(
+    Bot(
+        displayName = "RS3 Cooking Script",
+        baseName = "RS3-Cooking",
+        iniPath = "src/main/resources/script.ini"
+    )
+)
+
+/** Destination where BWU loads local scripts on Windows. */
+val bwuLocalDir = file("${System.getProperty("user.home")}\\BotWithUs\\scripts\\local\\")
+
+/** Create per-bot jar + install tasks dynamically. */
+val botJarTasks = mutableListOf<TaskProvider<Jar>>()
+val installTasks = mutableListOf<TaskProvider<Copy>>()
+
+bots.forEach { bot ->
+    val iniFile = layout.projectDirectory.file(bot.iniPath)
+
+    val jarTask = tasks.register<Jar>("jar${bot.baseName}") {
+        dependsOn(tasks.named("classes"))
+
+        archiveBaseName.set(bot.baseName)
+        archiveVersion.set(project.version.toString())
+        destinationDirectory.set(layout.buildDirectory.dir("libs"))
+
+        // sanity check
+        doFirst {
+            if (!iniFile.asFile.exists()) {
+                throw GradleException("Missing script.ini for '${bot.displayName}' at ${iniFile.asFile.absolutePath}")
+            }
+        }
+
+        // compiled classes/resources
+        from(sourceSets.main.get().output)
+
+        // include ONLY this bot's script.ini at jar root
+        from(iniFile) { into("") }
+
+        // embed any libs you've put in includeInJar
+        embedIncludeInJar()
     }
+
+    botJarTasks += jarTask
+
+    val installTask = tasks.register<Copy>("install${bot.baseName}") {
+        dependsOn(jarTask)
+        from(jarTask.flatMap { it.archiveFile }) // the actual .jar file
+        into(bwuLocalDir)
+        doFirst { bwuLocalDir.mkdirs() }
+    }
+
+    installTasks += installTask
 }
 
-tasks.getByName<Test>("test") {
-    useJUnitPlatform()
-}
+/** Build lifecycle: produce and install all bot jars. */
+tasks.assemble { dependsOn(botJarTasks) }
+tasks.build { dependsOn(botJarTasks + installTasks) }
 
-// Custom task to clean and rebuild
-tasks.register("cleanBuild") {
-    dependsOn("clean", "build")
-    tasks.findByName("build")?.mustRunAfter("clean")
+/** Optional: print paths of produced jars. */
+tasks.register("printJarPaths") {
+    dependsOn(botJarTasks)
+    doLast {
+        botJarTasks.forEach { tp ->
+            val f = tp.get().archiveFile.get().asFile
+            println("${tp.name} -> ${f.absolutePath}")
+        }
+    }
 }
