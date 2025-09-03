@@ -31,8 +31,7 @@ public class RS3CookingScriptGraphicsContext extends ScriptGraphicsContext {
                     ImGui.Separator();
 
                     ImGui.Text("Selected Fish: " + script.getSelectedFish());
-                    ImGui.Text("Cooking Method: " +
-                            (script.getPreferredLocation().equalsIgnoreCase("portable") ? "Portable range" : "Bonfire"));
+                    ImGui.Text("Cooking Method: " + script.getPreferredLocation());
 
                     ImGui.Separator();
 

@@ -20,7 +20,7 @@ public class RS3CookingScript extends LoopingScript {
 
     // === CONFIG ===
     private String selectedFish = "Raw bass";
-    private String preferredLocation = "Bonfire";
+    private String preferredLocation = "";
 
     private enum BotState {COOKING, BANKING}
 
@@ -99,7 +99,7 @@ public class RS3CookingScript extends LoopingScript {
             banker = NpcQuery.newQuery().name("Banker").results().nearest();
         }
 
-        if (banker != null) {
+        if (banker != null && banker.getCoordinate() != null && Client.getLocalPlayer() != null) {
             println("DEBUG: Found banker: " + banker.getName() + " at distance: " + banker.getCoordinate().distanceTo(Client.getLocalPlayer().getCoordinate()));
             println("DEBUG: Attempting to interact with 'Load Last Preset from'...");
 
@@ -266,31 +266,27 @@ public class RS3CookingScript extends LoopingScript {
 
     private void waitWhileCooking() {
         println("DEBUG: === WAITING WHILE COOKING ===");
-        println("DEBUG: Starting cooking wait loop (max 120 seconds)...");
 
-        boolean finished = Execution.delayUntil(
-                () -> {
-                    boolean noFish = !net.botwithus.rs3.game.inventories.Backpack.contains(selectedFish);
-                    boolean notAnimating = !isCookingAnimation();
+        while (true) {
+            println("DEBUG: Starting 63-second cooking wait cycle...");
 
-                    if (noFish) println("DEBUG: No more fish in backpack");
-                    if (notAnimating) println("DEBUG: No longer cooking animation");
+            // Wait 30 seconds
+            Execution.delay(63000 / 600);
 
-                    return noFish || notAnimating;
-                },
-                () -> {
-                    boolean busy = localIsBusy();
-                    if (busy) println("DEBUG: Player busy while cooking");
-                    return busy;
-                },
-                120_000
-        );
+            // Check if we're still animating
+            boolean stillAnimating = isCookingAnimation();
+            println("DEBUG: After 63 seconds - still animating: " + stillAnimating);
 
-        if (finished) {
-            println("DEBUG: Cooking completed successfully");
-        } else {
-            println("DEBUG: Cooking wait timed out after 120 seconds");
+            if (stillAnimating) {
+                println("DEBUG: Still cooking, resetting 30-second timer...");
+                // Continue the loop (reset timer)
+            } else {
+                println("DEBUG: No longer animating, exiting cooking wait");
+                break; // Exit the loop, will go back to banking state
+            }
         }
+
+        println("DEBUG: === COOKING WAIT COMPLETED ===");
     }
 
     private boolean isCookingAnimation() {
@@ -352,5 +348,10 @@ public class RS3CookingScript extends LoopingScript {
     public String getUiStatus() {
         if (!enabled) return "Stopped";
         return "Running";
+    }
+
+    @Override
+    public void pause() {
+        super.pause();
     }
 }
