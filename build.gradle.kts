@@ -54,7 +54,7 @@ data class Bot(val displayName: String, val baseName: String, val iniPath: Strin
 
 val bots = listOf(
     Bot(
-        displayName = "RS3 Cooking Script",
+        displayName = "RS3 Cooking Script 2",
         baseName = "RS3-Cooking",
         iniPath = "src/main/resources/script.ini"
     )
