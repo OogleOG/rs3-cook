@@ -4,10 +4,25 @@ import net.botwithus.rs3.imgui.ImGui;
 import net.botwithus.rs3.imgui.ImGuiWindowFlag;
 import net.botwithus.rs3.script.ScriptConsole;
 import net.botwithus.rs3.script.ScriptGraphicsContext;
+import net.botwithus.rs3cook.data.CookingTask;
+
+import java.util.List;
 
 public class RS3CookingScriptGraphicsContext extends ScriptGraphicsContext {
 
     public RS3CookingScript script;
+
+    // UI state variables
+    private int selectedFishIndex = 0;
+    private int taskQuantity = 100;
+
+    private static final String[] FISH_TYPES = {
+        "Raw shrimps", "Raw anchovies", "Raw sardine", "Raw herring",
+        "Raw mackerel", "Raw trout", "Raw cod", "Raw pike", "Raw salmon",
+        "Raw tuna", "Raw lobster", "Raw bass", "Raw swordfish",
+        "Raw monkfish", "Raw karambwan", "Raw shark", "Raw cavefish",
+        "Raw rocktail", "Raw sailfish", "Raw blue blubber jellyfish"
+    };
 
     public RS3CookingScriptGraphicsContext(ScriptConsole scriptConsole, RS3CookingScript script) {
         super(scriptConsole);
@@ -24,15 +39,26 @@ public class RS3CookingScriptGraphicsContext extends ScriptGraphicsContext {
 
             if (ImGui.BeginTabBar("CookingTabs", ImGuiWindowFlag.None.getValue())) {
 
+                // TASK QUEUE TAB
+                if (ImGui.BeginTabItem("Task Queue", ImGuiWindowFlag.None.getValue())) {
+                    drawTaskQueueTab();
+                    ImGui.EndTabItem();
+                }
+
                 // SETTINGS TAB
                 if (ImGui.BeginTabItem("Settings", ImGuiWindowFlag.None.getValue())) {
                     ImGui.Text("RS3 Cooking Script");
                     ImGui.Text("Status: " + script.getUiStatus());
                     ImGui.Separator();
 
-                    ImGui.Text("Selected Fish: " + script.getSelectedFish());
-                    ImGui.Text("Cooking Method: " + script.getPreferredLocation());
+                    if (ImGui.Button("Portable range")) {
+                        script.setPreferredLocation("Portable range");
+                    }
+                    if (ImGui.Button("Bonfire (Priff)")) {
+                        script.setPreferredLocation("Bonfire");
+                    }
 
+                    ImGui.Text("Current: " + script.getPreferredLocation());
                     ImGui.Separator();
 
                     if (!script.isEnabled()) {
@@ -44,95 +70,38 @@ public class RS3CookingScriptGraphicsContext extends ScriptGraphicsContext {
                     ImGui.EndTabItem();
                 }
 
-                // FISH SELECTION TAB
-                if (ImGui.BeginTabItem("Fish Selection", ImGuiWindowFlag.None.getValue())) {
-                    ImGui.Text("Select which fish to cook:");
-                    ImGui.Separator();
 
-                    ImGui.Text("Low Level");
-                    if (ImGui.Button("Raw shrimps"))    script.setSelectedFish("Raw shrimps");
-                    ImGui.SameLine();
-                    if (ImGui.Button("Raw anchovies"))  script.setSelectedFish("Raw anchovies");
-                    ImGui.SameLine();
-                    if (ImGui.Button("Raw sardine"))    script.setSelectedFish("Raw sardine");
 
-                    if (ImGui.Button("Raw herring"))    script.setSelectedFish("Raw herring");
-                    ImGui.SameLine();
-                    if (ImGui.Button("Raw mackerel"))   script.setSelectedFish("Raw mackerel");
-                    ImGui.SameLine();
-                    if (ImGui.Button("Raw trout"))      script.setSelectedFish("Raw trout");
 
-                    if (ImGui.Button("Raw cod"))        script.setSelectedFish("Raw cod");
-                    ImGui.SameLine();
-                    if (ImGui.Button("Raw pike"))       script.setSelectedFish("Raw pike");
-                    ImGui.SameLine();
-                    if (ImGui.Button("Raw salmon"))     script.setSelectedFish("Raw salmon");
 
-                    ImGui.Separator();
-
-                    ImGui.Text("Medium Level");
-                    if (ImGui.Button("Raw tuna"))       script.setSelectedFish("Raw tuna");
-                    ImGui.SameLine();
-                    if (ImGui.Button("Raw lobster"))    script.setSelectedFish("Raw lobster");
-                    ImGui.SameLine();
-                    if (ImGui.Button("Raw bass"))       script.setSelectedFish("Raw bass");
-
-                    if (ImGui.Button("Raw swordfish"))  script.setSelectedFish("Raw swordfish");
-                    ImGui.SameLine();
-                    if (ImGui.Button("Raw monkfish"))   script.setSelectedFish("Raw monkfish");
-                    ImGui.SameLine();
-                    if (ImGui.Button("Raw karambwan"))  script.setSelectedFish("Raw karambwan");
-
-                    ImGui.Separator();
-
-                    ImGui.Text("High Level");
-                    if (ImGui.Button("Raw shark"))      script.setSelectedFish("Raw shark");
-                    ImGui.SameLine();
-                    if (ImGui.Button("Raw cavefish"))   script.setSelectedFish("Raw cavefish");
-                    ImGui.SameLine();
-                    if (ImGui.Button("Raw rocktail"))   script.setSelectedFish("Raw rocktail");
-
-                    if (ImGui.Button("Raw sailfish"))   script.setSelectedFish("Raw sailfish");
-                    ImGui.SameLine();
-                    if (ImGui.Button("Raw blue blubber jellyfish"))
-                        script.setSelectedFish("Raw blue blubber jellyfish");
-
-                    ImGui.EndTabItem();
-                }
-
-                // COOKING METHOD TAB
-                if (ImGui.BeginTabItem("Cooking Method", ImGuiWindowFlag.None.getValue())) {
-                    ImGui.Text("Select your cooking method:");
-                    ImGui.Separator();
-
-                    if (ImGui.Button("Portable range")) {
-                        script.setPreferredLocation("Portable range");
-                        ImGui.Text("Selected: Portable range");
-                    }
-                    if (ImGui.Button("Bonfire (Priff)")) {
-                        script.setPreferredLocation("Bonfire");
-                        ImGui.Text("Selected: Bonfire");
-                    }
-
-                    ImGui.Separator();
-                    ImGui.Text("Current selection: " + script.getPreferredLocation());
-
-                    ImGui.EndTabItem();
-                }
-
-                // STATS TAB (lightweight)
+                // STATISTICS TAB
                 if (ImGui.BeginTabItem("Statistics", ImGuiWindowFlag.None.getValue())) {
-                    ImGui.Text("Session Stats");
+                    ImGui.Text("Task Progress");
                     ImGui.Separator();
-                    ImGui.Text("Selected Fish: " + script.getSelectedFish());
-                    ImGui.Text("Mode: " + script.getPreferredLocation());
-                    ImGui.Text("Running: " + (script.isEnabled() ? "Yes" : "No"));
-                    ImGui.Text("Status: " + script.getUiStatus());
+
+                    List<CookingTask> tasks = script.getCookingTasks();
+                    if (tasks.isEmpty()) {
+                        ImGui.Text("No tasks added yet");
+                    } else {
+                        int totalTasks = tasks.size();
+                        long completedTasks = tasks.stream().mapToLong(task -> task.isCompleted() ? 1 : 0).sum();
+
+                        ImGui.Text("Tasks: " + completedTasks + "/" + totalTasks);
+                        ImGui.Separator();
+
+                        for (CookingTask task : tasks) {
+                            String status = task.isCompleted() ? "✓" : "○";
+                            ImGui.Text(status + " " + task.toString());
+
+                            // Progress bar for each task
+                            float progress = task.getProgressPercent();
+                            ImGui.ProgressBar(task.getFishName() + " Progress", progress, 200.0f, 20.0f);
+                        }
+                    }
 
                     ImGui.Separator();
-                    ImGui.Text("Debug Info:");
-                    ImGui.Text("Fish in backpack: " + (net.botwithus.rs3.game.inventories.Backpack.contains(script.getSelectedFish()) ? "Yes" : "No"));
-                    ImGui.Text("Bank open: " + (net.botwithus.rs3.game.inventories.Bank.isOpen() ? "Yes" : "No"));
+                    ImGui.Text("Current Status: " + script.getUiStatus());
+                    ImGui.Text("Mode: " + script.getPreferredLocation());
 
                     ImGui.EndTabItem();
                 }
@@ -141,6 +110,64 @@ public class RS3CookingScriptGraphicsContext extends ScriptGraphicsContext {
             }
         }
         ImGui.End(); // close window
+    }
+
+    private void drawTaskQueueTab() {
+        ImGui.Text("Cooking Task Queue");
+        ImGui.Separator();
+
+        // Current task display
+        CookingTask current = script.getCurrentTask();
+        if (current != null) {
+            ImGui.Text("Current Task: " + current.toString());
+            float progress = current.getProgressPercent();
+            ImGui.ProgressBar("Progress: " + (int)(progress * 100) + "%", progress, 200.0f, 20.0f);
+        } else {
+            ImGui.Text("No active task");
+        }
+
+        ImGui.Separator();
+
+        // Task list
+        ImGui.Text("Queued Tasks:");
+        List<CookingTask> tasks = script.getCookingTasks();
+
+        if (tasks.isEmpty()) {
+            ImGui.Text("No tasks in queue");
+        } else {
+            for (int i = 0; i < tasks.size(); i++) {
+                CookingTask task = tasks.get(i);
+                String status = task.isCompleted() ? "[DONE]" : "[PENDING]";
+                ImGui.Text(status + " " + task.toString());
+
+                ImGui.SameLine();
+                if (ImGui.Button("Remove##" + i)) {
+                    script.removeTask(i);
+                }
+            }
+        }
+
+        ImGui.Separator();
+
+        // Add new task
+        ImGui.Text("Add New Task:");
+
+        // Fish selection dropdown
+        ImGui.Text("Fish Type:");
+        selectedFishIndex = ImGui.Combo("##FishType", selectedFishIndex, FISH_TYPES);
+
+        ImGui.Text("Quantity:");
+        taskQuantity = ImGui.InputInt("##Quantity", taskQuantity);
+        if (taskQuantity < 1) taskQuantity = 1;
+
+        if (ImGui.Button("Add Task")) {
+            script.addTask(FISH_TYPES[selectedFishIndex], taskQuantity);
+        }
+
+        ImGui.SameLine();
+        if (ImGui.Button("Clear All Tasks")) {
+            script.clearAllTasks();
+        }
     }
 
     @Override

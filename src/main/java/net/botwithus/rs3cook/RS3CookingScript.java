@@ -4,6 +4,8 @@ import net.botwithus.internal.scripts.ScriptDefinition;
 import net.botwithus.rs3.game.Client;
 import net.botwithus.rs3.game.hud.interfaces.Interfaces;
 import net.botwithus.rs3.game.inventories.Bank;
+import net.botwithus.rs3.game.inventories.Backpack;
+import net.botwithus.rs3.game.Item;
 import net.botwithus.rs3.game.queries.builders.characters.NpcQuery;
 import net.botwithus.rs3.game.queries.builders.objects.SceneObjectQuery;
 import net.botwithus.rs3.game.scene.entities.characters.npc.Npc;
@@ -13,13 +15,17 @@ import net.botwithus.rs3.input.KeyboardInput;
 import net.botwithus.rs3.script.Execution;
 import net.botwithus.rs3.script.LoopingScript;
 import net.botwithus.rs3.script.config.ScriptConfig;
+import net.botwithus.rs3cook.data.CookingTask;
 
 import java.awt.event.KeyEvent;
+import java.util.ArrayList;
+import java.util.List;
 
 public class RS3CookingScript extends LoopingScript {
 
-    // === CONFIG ===
-    private String selectedFish = "Raw bass";
+    // === TASK SYSTEM ===
+    private List<CookingTask> cookingTasks = new ArrayList<>();
+    private CookingTask currentTask = null;
     private String preferredLocation = "";
 
     private enum BotState {COOKING, BANKING}
@@ -54,7 +60,7 @@ public class RS3CookingScript extends LoopingScript {
 
         println("DEBUG: Script is enabled, computing state...");
         BotState state = computeState();
-        println("DEBUG: Current state: " + state + " | Fish: " + selectedFish + " | Location: " + preferredLocation);
+        println("DEBUG: Current state: " + state + " | Fish: " + currentTask.getFishName() + " | Location: " + preferredLocation);
 
         switch (state) {
             case BANKING -> {
@@ -71,16 +77,94 @@ public class RS3CookingScript extends LoopingScript {
 
     private BotState computeState() {
         println("DEBUG: Computing state...");
-        boolean hasFish = net.botwithus.rs3.game.inventories.Backpack.contains(selectedFish);
-        println("DEBUG: Has " + selectedFish + " in backpack: " + hasFish);
+
+        // Check if all tasks are completed
+        if (allTasksCompleted()) {
+            println("DEBUG: All tasks completed, stopping script");
+            setEnabled(false);
+            return BotState.BANKING; // Safe state
+        }
+
+        // Get current task
+        currentTask = getNextTask();
+        if (currentTask == null) {
+            println("DEBUG: No active tasks");
+            setEnabled(false);
+            return BotState.BANKING;
+        }
+
+        String currentFish = currentTask.getFishName();
+        boolean hasFish = net.botwithus.rs3.game.inventories.Backpack.contains(currentFish);
+        println("DEBUG: Current task: " + currentTask.toString() + ", has fish: " + hasFish);
 
         if (!hasFish) {
-            println("DEBUG: No fish found, returning BANKING state");
+            println("DEBUG: No " + currentFish + " found, returning BANKING state");
             return BotState.BANKING;
         }
 
         println("DEBUG: Fish found, returning COOKING state");
         return BotState.COOKING;
+    }
+
+    // -------------------------
+    // UTILITY METHODS
+    // -------------------------
+
+    /**
+     * Custom method to count items in backpack by name
+     * Since BotWithUs API doesn't provide getCount(), we check individual slots
+     */
+    private int getBackpackCount(String itemName) {
+        int count = 0;
+        try {
+            // Check each backpack slot (0-27 for 28 slots)
+            for (int slot = 0; slot < 28; slot++) {
+                Item item = Backpack.getSlot(slot);
+                if (item != null && item.getName() != null && item.getName().equals(itemName)) {
+                    count += item.getStackSize(); // Add stack size (usually 1 for fish)
+                }
+            }
+            println("DEBUG: Found " + count + " " + itemName + " in backpack");
+        } catch (Exception e) {
+            println("DEBUG: Error counting items: " + e.getMessage());
+            // Fallback: if counting fails, just check if item exists
+            return net.botwithus.rs3.game.inventories.Backpack.contains(itemName) ? 1 : 0;
+        }
+        return count;
+    }
+
+    // -------------------------
+    // TASK MANAGEMENT
+    // -------------------------
+    public void addTask(String fishName, int quantity) {
+        cookingTasks.add(new CookingTask(fishName, quantity));
+        println("DEBUG: Added task - " + fishName + " x" + quantity);
+    }
+
+    public void removeTask(int index) {
+        if (index >= 0 && index < cookingTasks.size()) {
+            CookingTask removed = cookingTasks.remove(index);
+            println("DEBUG: Removed task - " + removed.getFishName());
+        }
+    }
+
+    public void clearAllTasks() {
+        cookingTasks.clear();
+        currentTask = null;
+        println("DEBUG: Cleared all tasks");
+    }
+
+    private CookingTask getNextTask() {
+        for (CookingTask task : cookingTasks) {
+            if (!task.isCompleted()) {
+                return task;
+            }
+        }
+        return null; // All tasks completed
+    }
+
+    private boolean allTasksCompleted() {
+        return cookingTasks.isEmpty() || cookingTasks.stream().allMatch(CookingTask::isCompleted);
     }
 
     // -------------------------
@@ -109,7 +193,7 @@ public class RS3CookingScript extends LoopingScript {
                 // Wait for the preset to load (inventory to change)
                 boolean success = Execution.delayUntil(
                     () -> {
-                        boolean hasFish = net.botwithus.rs3.game.inventories.Backpack.contains(selectedFish);
+                        boolean hasFish = net.botwithus.rs3.game.inventories.Backpack.contains(currentTask.getFishName());
                         if (hasFish) println("DEBUG: Fish detected in backpack!");
                         return hasFish;
                     },
@@ -144,17 +228,32 @@ public class RS3CookingScript extends LoopingScript {
     private void doCookingCycle() {
         println("DEBUG: === COOKING CYCLE START ===");
 
-        if (!net.botwithus.rs3.game.inventories.Backpack.contains(selectedFish)) {
-            println("DEBUG: No fish in backpack, exiting cooking cycle");
+        if (currentTask == null) {
+            println("DEBUG: No current task, exiting cooking cycle");
+            return;
+        }
+
+        String currentFish = currentTask.getFishName();
+        println("DEBUG: Working on task: " + currentTask.toString());
+
+        if (!net.botwithus.rs3.game.inventories.Backpack.contains(currentFish)) {
+            println("DEBUG: No " + currentFish + " in backpack, exiting cooking cycle");
             return;
         }
 
         println("DEBUG: Fish found in backpack, proceeding with cooking");
 
+        // Count fish before cooking using our custom method
+        int fishBefore = getBackpackCount(currentFish);
+        println("DEBUG: Fish count before cooking: " + fishBefore);
+
         if (cookingWidgetOpen()) {
             println("DEBUG: Cooking widget is already open");
             pressCookAll();
             waitWhileCooking();
+
+            // Update task progress after cooking
+            updateTaskProgress(currentFish, fishBefore);
             return;
         }
 
@@ -196,11 +295,38 @@ public class RS3CookingScript extends LoopingScript {
             }
 
             waitWhileCooking();
+
+            // Update task progress after cooking
+            updateTaskProgress(currentFish, fishBefore);
         } else {
             println("DEBUG: Failed to interact with cooking object");
         }
 
         println("DEBUG: === COOKING CYCLE END ===");
+    }
+
+    private void updateTaskProgress(String fishName, int fishBefore) {
+        if (currentTask == null) return;
+
+        // Count fish after cooking using our custom method
+        int fishAfter = getBackpackCount(fishName);
+        int cookedThisRound = fishBefore - fishAfter;
+
+        println("DEBUG: Fish before: " + fishBefore + ", after: " + fishAfter + ", cooked: " + cookedThisRound);
+
+        if (cookedThisRound > 0) {
+            currentTask.incrementCooked(cookedThisRound);
+            println("DEBUG: Cooked " + cookedThisRound + " " + fishName +
+                   ". Progress: " + currentTask.toString());
+
+            if (currentTask.isCompleted()) {
+                println("DEBUG: Task completed! " + currentTask.getFishName());
+            }
+        } else if (cookedThisRound < 0) {
+            println("DEBUG: Warning: Fish count increased (got more fish somehow)");
+        } else {
+            println("DEBUG: No fish cooked this round");
+        }
     }
 
     private SceneObject findCookingObject() {
@@ -247,38 +373,43 @@ public class RS3CookingScript extends LoopingScript {
     }
 
     private boolean cookingWidgetOpen() {
-        boolean widget1370 = Interfaces.isOpen(1370);
-        boolean widget1251 = Interfaces.isOpen(1251);
-        boolean isOpen = widget1370 || widget1251;
-
-        println("DEBUG: Checking cooking widgets - 1370: " + widget1370 + ", 1251: " + widget1251 + ", result: " + isOpen);
+        boolean isOpen = Interfaces.isOpen(1370);
+        println("DEBUG: Checking cooking widgets - 1370: " + isOpen);
         return isOpen;
     }
 
     private void pressCookAll() {
         println("DEBUG: === PRESSING COOK ALL ===");
         println("DEBUG: Pressing SPACE for Cook All...");
+        if (!isCookingAnimation()) {
         KeyboardInput.pressKey(KeyEvent.VK_SPACE);
-        println("DEBUG: SPACE key pressed, waiting 200ms");
-        Execution.delay(200);
+        println("DEBUG: SPACE key pressed, waiting 1200ms");
+        Execution.delay(1200);
         println("DEBUG: Cook All action completed");
+        }
     }
 
     private void waitWhileCooking() {
         println("DEBUG: === WAITING WHILE COOKING ===");
 
         while (true) {
-            println("DEBUG: Starting 63-second cooking wait cycle...");
+            println("DEBUG: Starting 60-second cooking wait cycle...");
 
-            // Wait 30 seconds
-            Execution.delay(63000 / 600);
+            if (!Backpack.contains(getCurrentTask().getFishName())) {
+                println("We no longer have fish, exiting cooking wait");
+                return;
+            }
+
+            // This will keep delaying WHILE the condition is true, up to 65 seconds max
+            // Delay while the player still has the fish in their inventory, up to 65 seconds
+            Delays.delayWhile(this, () -> Backpack.contains(getCurrentTask().getFishName()), 65000);
 
             // Check if we're still animating
             boolean stillAnimating = isCookingAnimation();
-            println("DEBUG: After 63 seconds - still animating: " + stillAnimating);
+            println("DEBUG: After 60 seconds - still animating: " + stillAnimating);
 
             if (stillAnimating) {
-                println("DEBUG: Still cooking, resetting 30-second timer...");
+                println("DEBUG: Still cooking, resetting 60-second timer...");
                 // Continue the loop (reset timer)
             } else {
                 println("DEBUG: No longer animating, exiting cooking wait");
@@ -327,28 +458,32 @@ public class RS3CookingScript extends LoopingScript {
     }
 
     // UI bindings
-    public void setSelectedFish(String fish) {
-        this.selectedFish = fish;
-    }
-
     public void setPreferredLocation(String loc) {
         this.preferredLocation = loc;
     }
 
-    private boolean enabled = true; // Start enabled by default
+    private boolean enabled = false; // Start disabled by default
 
     // --- Expose config to UI ---
-    public String getSelectedFish() { return selectedFish; }
-
     public String getPreferredLocation() { return preferredLocation; }
+    public List<CookingTask> getCookingTasks() { return cookingTasks; }
+    public CookingTask getCurrentTask() { return currentTask; }
 
     // --- Start/Stop control ---
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
     public String getUiStatus() {
         if (!enabled) return "Stopped";
+        if (currentTask != null) {
+            return "Running: " + currentTask.getFishName() + " (" + currentTask.getCookedCount() + "/" + currentTask.getTargetQuantity() + ")";
+        }
         return "Running";
     }
+
+    private boolean hasFishInInventory() {
+        return Backpack.contains(getCurrentTask().getFishName());
+    }
+
 
     @Override
     public void pause() {
