@@ -19,6 +19,8 @@ import net.botwithus.rs3cook.cooking.CookingActionHandler;
 import net.botwithus.rs3cook.banking.BankingManager;
 import net.botwithus.rs3cook.safety.SafetyManager;
 import net.botwithus.rs3cook.safety.AntiPatternDetector;
+import net.botwithus.rs3cook.statistics.StatisticsManager;
+import net.botwithus.rs3cook.statistics.SessionLogger;
 
 import java.util.Random;
 
@@ -45,6 +47,10 @@ public class CookingScript extends LoopingScript {
     // Safety and anti-detection
     private SafetyManager safetyManager;
     private AntiPatternDetector patternDetector;
+
+    // Statistics and logging
+    private StatisticsManager statisticsManager;
+    private SessionLogger sessionLogger;
     
     // Statistics tracking
     private long sessionStartTime;
@@ -94,6 +100,8 @@ public class CookingScript extends LoopingScript {
         this.bankingManager = new BankingManager(config);
         this.safetyManager = new SafetyManager(config);
         this.patternDetector = new AntiPatternDetector();
+        this.statisticsManager = new StatisticsManager();
+        this.sessionLogger = new SessionLogger();
 
         println("RS3 Cooking Script initialized successfully!");
     }
@@ -409,6 +417,11 @@ public class CookingScript extends LoopingScript {
 
             // Calculate experience gained (simplified)
             experienceGained = (long) (fishCooked * selectedFish.getExperience());
+
+            // Update statistics manager
+            if (statisticsManager != null) {
+                statisticsManager.updateExperience(experienceGained, getCurrentCookingLevel());
+            }
         }
     }
 
@@ -458,4 +471,6 @@ public class CookingScript extends LoopingScript {
     public BankingManager getBankingManager() { return bankingManager; }
     public SafetyManager getSafetyManager() { return safetyManager; }
     public AntiPatternDetector getPatternDetector() { return patternDetector; }
+    public StatisticsManager getStatisticsManager() { return statisticsManager; }
+    public SessionLogger getSessionLogger() { return sessionLogger; }
 }

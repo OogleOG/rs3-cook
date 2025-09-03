@@ -10,8 +10,11 @@ import net.botwithus.rs3cook.data.CookingLocation;
 import net.botwithus.rs3cook.data.CookingUtils;
 import net.botwithus.rs3cook.banking.BankLocation;
 import net.botwithus.rs3cook.cooking.CookingActionHandler;
+import net.botwithus.rs3cook.statistics.StatisticsManager;
+import net.botwithus.rs3cook.statistics.SessionLogger;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Comprehensive ImGui interface for the cooking script
@@ -93,46 +96,7 @@ public class CookingScriptGraphicsContext extends ScriptGraphicsContext {
     @Override
     public void drawOverlay() {
         super.drawOverlay();
-
-        // Enhanced overlay showing current state and progress
-        if (ImGui.Begin("Cooking Status", ImGuiWindowFlag.NoTitleBar.getValue() |
-                       ImGuiWindowFlag.NoResize.getValue() |
-                       ImGuiWindowFlag.AlwaysAutoResize.getValue())) {
-
-            // Current state
-            ImGui.Text("State: " + script.getBotState().toString());
-            ImGui.Text("Fish: " + script.getSelectedFish().getName());
-            ImGui.Text("Location: " + script.getCurrentLocation().getName());
-
-            // Progress information
-            if (script.getActionHandler() != null) {
-                CookingActionHandler.CookingProgress progress = script.getActionHandler().getCookingProgress();
-                if (progress.isCooking()) {
-                    ImGui.Text("Cooking in progress...");
-                    ImGui.Text("Raw fish: " + progress.getRawFishCount());
-                    ImGui.Text("Cooked fish: " + progress.getCookedFishCount());
-
-                    if (progress.getEstimatedTimeRemaining() > 0) {
-                        String timeStr = CookingUtils.formatTime(progress.getEstimatedTimeRemaining());
-                        ImGui.Text("Time remaining: " + timeStr);
-                    }
-                }
-            }
-
-            // Session stats
-            long sessionTime = script.getSessionTime();
-            if (sessionTime > 0) {
-                String timeStr = CookingUtils.formatTime(sessionTime);
-                ImGui.Text("Session: " + timeStr);
-
-                if (script.getExperienceGained() > 0) {
-                    long xpPerHour = (script.getExperienceGained() * 3600000) / sessionTime;
-                    ImGui.Text("XP/hr: " + CookingUtils.formatExperience(xpPerHour));
-                }
-            }
-
-            ImGui.End();
-        }
+        // No additional overlay panels - settings panel is enough
     }
 
     /**
@@ -411,46 +375,61 @@ public class CookingScriptGraphicsContext extends ScriptGraphicsContext {
         ImGui.Text("Session Statistics");
         ImGui.Separator();
 
-        // Time statistics
-        long sessionTime = script.getSessionTime();
-        long hours = sessionTime / 3600000;
-        long minutes = (sessionTime % 3600000) / 60000;
-        long seconds = (sessionTime % 60000) / 1000;
+        StatisticsManager statsManager = script.getStatisticsManager();
+        if (statsManager == null) {
+            ImGui.Text("Statistics not available");
+            return;
+        }
 
-        ImGui.Text("Session Time: " + hours + "h " + minutes + "m " + seconds + "s");
+        // Generate current report
+        StatisticsManager.StatisticsReport report = statsManager.generateReport();
+
+        // Time statistics
+        ImGui.Text("Session Time: " + CookingUtils.formatTime(report.sessionDuration));
 
         // Cooking statistics
-        ImGui.Text("Fish Cooked: " + script.getFishCooked());
-        ImGui.Text("Fish Burned: " + script.getFishBurned());
+        ImGui.Text("Fish Cooked: " + report.fishCooked);
+        ImGui.Text("Fish Burned: " + report.fishBurned);
+        ImGui.Text("Fish Attempted: " + report.fishAttempted);
 
-        int totalFish = script.getFishCooked() + script.getFishBurned();
-        if (totalFish > 0) {
-            double successRate = (double) script.getFishCooked() / totalFish * 100;
-            ImGui.Text("Success Rate: " + String.format("%.1f%%", successRate));
+        if (report.fishAttempted > 0) {
+            ImGui.Text("Success Rate: " + String.format("%.1f%%", report.successRate * 100));
+            ImGui.Text("Burn Rate: " + String.format("%.1f%%", report.burnRate * 100));
         }
 
         // Experience statistics
-        ImGui.Text("Experience Gained: " + CookingUtils.formatExperience(script.getExperienceGained()));
+        ImGui.Text("Experience Gained: " + CookingUtils.formatExperience(report.experienceGained));
+        ImGui.Text("Current XP/Hour: " + CookingUtils.formatExperience(report.currentXpPerHour));
+        ImGui.Text("Average XP/Hour: " + CookingUtils.formatExperience(report.averageXpPerHour));
 
-        if (sessionTime > 0) {
-            long xpPerHour = (script.getExperienceGained() * 3600000) / sessionTime;
-            ImGui.Text("XP/Hour: " + CookingUtils.formatExperience(xpPerHour));
-
-            if (totalFish > 0) {
-                long fishPerHour = (totalFish * 3600000) / sessionTime;
-                ImGui.Text("Fish/Hour: " + fishPerHour);
-            }
+        // Additional statistics
+        ImGui.Text("Banking Trips: " + report.bankingTrips);
+        if (report.levelsGained > 0) {
+            ImGui.Text("Levels Gained: " + report.levelsGained);
         }
+        ImGui.Text("Current Level: " + statsManager.getCurrentLevel());
 
         ImGui.Separator();
 
-        // Progress information (simplified without progress bars)
+        // Fish-specific statistics
+        if (!report.fishStats.isEmpty()) {
+            ImGui.Text("Fish Statistics:");
+            for (Map.Entry<String, StatisticsManager.FishStatistics> entry : report.fishStats.entrySet()) {
+                StatisticsManager.FishStatistics fishStats = entry.getValue();
+                ImGui.Text(entry.getKey() + ": " + fishStats.cooked + " cooked, " +
+                          fishStats.burned + " burned (" +
+                          String.format("%.1f%%", fishStats.getSuccessRate() * 100) + " success)");
+            }
+            ImGui.Separator();
+        }
+
+        // Progress information
         ImGui.Text("Progress:");
 
         // Session progress (if target is set)
         int targetXP = script.getConfig().getTargetExperience();
         if (targetXP > 0) {
-            float progress = (float) script.getExperienceGained() / targetXP * 100;
+            float progress = (float) report.experienceGained / targetXP * 100;
             ImGui.Text("Target Progress: " + String.format("%.1f%%", Math.min(progress, 100.0f)));
             ImGui.Text("Target: " + CookingUtils.formatExperience(targetXP));
         }
@@ -458,18 +437,30 @@ public class CookingScriptGraphicsContext extends ScriptGraphicsContext {
         // Session time limit
         int maxSessionTime = script.getConfig().getMaxSessionTime();
         if (maxSessionTime > 0) {
-            float timeProgress = (float) sessionTime / (maxSessionTime * 60000) * 100;
+            float timeProgress = (float) report.sessionDuration / (maxSessionTime * 60000) * 100;
             ImGui.Text("Time Progress: " + String.format("%.1f%%", Math.min(timeProgress, 100.0f)));
             ImGui.Text("Time limit: " + maxSessionTime + " minutes");
         }
 
         ImGui.Separator();
 
+        // Historical statistics
+        SessionLogger logger = script.getSessionLogger();
+        if (logger != null) {
+            SessionLogger.SessionStatistics todayStats = logger.getTodayStatistics();
+            SessionLogger.SessionStatistics weekStats = logger.getWeekStatistics();
+
+            ImGui.Text("Today: " + todayStats.sessionCount + " sessions, " +
+                      CookingUtils.formatExperience(todayStats.totalExperience) + " XP");
+            ImGui.Text("This Week: " + weekStats.sessionCount + " sessions, " +
+                      CookingUtils.formatExperience(weekStats.totalExperience) + " XP");
+        }
+
+        ImGui.Separator();
+
         // Reset button
         if (ImGui.Button("Reset Statistics")) {
-            if (script.getActionHandler() != null) {
-                script.getActionHandler().resetStatistics();
-            }
+            statsManager.resetStatistics();
         }
     }
 

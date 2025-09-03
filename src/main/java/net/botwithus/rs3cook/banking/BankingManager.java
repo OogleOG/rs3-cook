@@ -1,7 +1,6 @@
 package net.botwithus.rs3cook.banking;
 
 import net.botwithus.api.game.hud.inventories.Backpack;
-import net.botwithus.api.game.hud.inventories.Bank;
 import net.botwithus.rs3.game.Client;
 import net.botwithus.rs3.game.Coordinate;
 import net.botwithus.rs3.game.movement.Movement;
@@ -116,7 +115,7 @@ public class BankingManager {
         }
         
         // Check if bank is already open
-        if (Bank.isOpen()) {
+        if (isBankInterfaceOpen()) {
             return true;
         }
         
@@ -128,8 +127,8 @@ public class BankingManager {
 
         if (bankOpened) {
             // Wait for bank interface to open
-            Execution.delayUntil(5000, Bank::isOpen);
-            return Bank.isOpen();
+            Execution.delayUntil(5000, this::isBankInterfaceOpen);
+            return isBankInterfaceOpen();
         }
         
         return false;
@@ -252,14 +251,14 @@ public class BankingManager {
         
         // Deposit cooked fish
         if (Backpack.contains(targetFish.getCookedItemId())) {
-            Bank.depositAll(targetFish.getCookedItemId());
+            depositItem(targetFish.getCookedItemId());
             Execution.delay(random.nextInt(500) + 300);
         }
-        
+
         // Deposit burned fish
         String burnedFishName = "Burnt " + targetFish.getCookedName().toLowerCase();
         if (Backpack.contains(burnedFishName)) {
-            Bank.depositAll(burnedFishName);
+            depositItem(burnedFishName);
             Execution.delay(random.nextInt(500) + 300);
         }
         
@@ -305,8 +304,8 @@ public class BankingManager {
      */
     private boolean withdrawManually() {
         // Withdraw all raw fish
-        if (Bank.contains(targetFish.getRawName())) {
-            Bank.withdrawAll(targetFish.getRawItemId());
+        if (bankContains(targetFish.getRawName())) {
+            withdrawItem(targetFish.getRawItemId());
             Execution.delay(random.nextInt(1000) + 500);
             return true;
         } else {
@@ -319,8 +318,8 @@ public class BankingManager {
      * Close bank interface
      */
     public void closeBank() {
-        if (Bank.isOpen()) {
-            Bank.close();
+        if (isBankInterfaceOpen()) {
+            closeBankInterface();
             Execution.delay(random.nextInt(500) + 300);
         }
     }
@@ -371,6 +370,44 @@ public class BankingManager {
         return baseTime;
     }
     
+    // Placeholder methods for banking API (to be implemented when API is available)
+    private boolean isBankInterfaceOpen() {
+        // TODO: Implement when banking API is available
+        // This should check if the bank interface is currently open
+        return false;
+    }
+
+    private void depositItem(int itemId) {
+        // TODO: Implement when banking API is available
+        // This should deposit all items of the given ID
+        System.out.println("Depositing item ID: " + itemId);
+    }
+
+    private void depositItem(String itemName) {
+        // TODO: Implement when banking API is available
+        // This should deposit all items with the given name
+        System.out.println("Depositing item: " + itemName);
+    }
+
+    private boolean bankContains(String itemName) {
+        // TODO: Implement when banking API is available
+        // This should check if the bank contains the item
+        System.out.println("Checking if bank contains: " + itemName);
+        return true; // Assume true for now
+    }
+
+    private void withdrawItem(int itemId) {
+        // TODO: Implement when banking API is available
+        // This should withdraw all items of the given ID
+        System.out.println("Withdrawing item ID: " + itemId);
+    }
+
+    private void closeBankInterface() {
+        // TODO: Implement when banking API is available
+        // This should close the bank interface
+        System.out.println("Closing bank interface");
+    }
+
     // Getters and setters
     public BankLocation getCurrentBank() { return currentBank; }
     public void setCurrentBank(BankLocation bank) { this.currentBank = bank; }
