@@ -172,52 +172,103 @@ public class RS3CookingScript extends LoopingScript {
     // -------------------------
     private void doBankingCycle() {
         println("DEBUG: === BANKING CYCLE START ===");
-        println("DEBUG: Looking for banker to load preset");
 
-        // Find banker and use "Load Last Preset from" option
-        println("DEBUG: Searching for banker with 'Load Last Preset from' option...");
-        Npc banker = NpcQuery.newQuery().option("Load Last Preset from").results().nearest();
-
-        if (banker == null) {
-            println("DEBUG: No banker with preset option found, searching for any banker...");
-            banker = NpcQuery.newQuery().name("Banker").results().nearest();
+        if (currentTask == null) {
+            println("DEBUG: No current task, cannot bank");
+            return;
         }
 
-        if (banker != null && banker.getCoordinate() != null && Client.getLocalPlayer() != null) {
-            println("DEBUG: Found banker: " + banker.getName() + " at distance: " + banker.getCoordinate().distanceTo(Client.getLocalPlayer().getCoordinate()));
-            println("DEBUG: Attempting to interact with 'Load Last Preset from'...");
+        String rawFishName = currentTask.getFishName();
+        String cookedFishName = getCookedFishName(rawFishName);
+        println("DEBUG: Current task fish: " + rawFishName + " -> " + cookedFishName);
 
-            if (banker.interact("Load Last Preset from")) {
-                println("DEBUG: Interaction successful, waiting for preset to load...");
+        // Find and open bank
+        if (!Bank.isOpen() && !openBank()) {
+            println("DEBUG: Failed to open bank");
+            return;
+        }
 
-                // Wait for the preset to load (inventory to change)
-                boolean success = Execution.delayUntil(
-                    () -> {
-                        boolean hasFish = net.botwithus.rs3.game.inventories.Backpack.contains(currentTask.getFishName());
-                        if (hasFish) println("DEBUG: Fish detected in backpack!");
-                        return hasFish;
-                    },
-                    () -> {
-                        boolean busy = localIsBusy();
-                        if (busy) println("DEBUG: Player is busy (moving/animating)");
-                        return busy;
-                    },
-                    5000
-                );
+        println("DEBUG: Bank is open, managing inventory...");
 
-                if (success) {
-                    println("DEBUG: Preset loaded successfully!");
-                } else {
-                    println("DEBUG: Preset loading timed out or failed");
-                }
+        // Step 1: Deposit all cooked fish
+        if (net.botwithus.rs3.game.inventories.Backpack.contains(cookedFishName)) {
+            println("DEBUG: Depositing cooked fish: " + cookedFishName);
+            if (Bank.deposit(cookedFishName, Bank.TransferAmount.ALL)) {
+                println("DEBUG: Successfully deposited " + cookedFishName);
+                Execution.delay(1000);
             } else {
-                println("DEBUG: Failed to interact with banker");
+                println("DEBUG: Failed to deposit " + cookedFishName);
+            }
+        }
+
+        // Step 2: Deposit any other items (keep inventory clean)
+        println("DEBUG: Depositing all other items except raw fish");
+        Bank.deposit(rawFishName, Bank.TransferAmount.ALL);
+        Execution.delay(1000);
+
+        // Step 3: Withdraw raw fish for current task
+        println("DEBUG: Withdrawing raw fish: " + rawFishName);
+        if (Bank.withdraw(rawFishName, Bank.TransferAmount.ALL)) {
+            println("DEBUG: Successfully withdrew " + rawFishName);
+
+            // Wait for fish to appear in backpack
+            boolean success = Execution.delayUntil(
+                () -> {
+                    boolean hasFish = net.botwithus.rs3.game.inventories.Backpack.contains(rawFishName);
+                    if (hasFish) println("DEBUG: Raw fish detected in backpack!");
+                    return hasFish;
+                },
+                () -> {
+                    boolean busy = localIsBusy();
+                    if (busy) println("DEBUG: Player is busy during banking");
+                    return busy;
+                },
+                5000
+            );
+
+            if (success) {
+                println("DEBUG: Banking completed successfully!");
+            } else {
+                println("DEBUG: Banking timed out - fish may not be available");
             }
         } else {
-            println("DEBUG: No banker found nearby");
+            println("DEBUG: Failed to withdraw " + rawFishName + " - may be out of stock");
         }
 
         println("DEBUG: === BANKING CYCLE END ===");
+    }
+
+    private boolean openBank() {
+        println("DEBUG: Attempting to open bank...");
+
+        // Try banker first
+        Npc banker = NpcQuery.newQuery().name("Banker").results().nearest();
+        if (banker != null) {
+            println("DEBUG: Found banker: " + banker.getName());
+            if (banker.interact("Bank")) {
+                return Execution.delayUntil(Bank::isOpen, this::localIsBusy, 5000);
+            }
+        }
+
+        // Try bank objects
+        String[] bankObjects = {"Bank chest", "Bank booth", "Bank"};
+        for (String objName : bankObjects) {
+            SceneObject bankObj = SceneObjectQuery.newQuery().name(objName).results().nearest();
+            if (bankObj != null) {
+                println("DEBUG: Found bank object: " + objName);
+                if (bankObj.interact("Bank")) {
+                    return Execution.delayUntil(Bank::isOpen, this::localIsBusy, 5000);
+                }
+            }
+        }
+
+        println("DEBUG: No bank found nearby");
+        return false;
+    }
+
+    private String getCookedFishName(String rawFishName) {
+        // Convert raw fish names to cooked fish names
+        return rawFishName.replace("Raw ", "");
     }
 
 
