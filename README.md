@@ -6,7 +6,8 @@
 
 A **comprehensive, professional-grade** RuneScape 3 cooking script for the BotWithUs client. Features intelligent banking, advanced safety systems, comprehensive statistics tracking, and a modern ImGui interface.
 
-![Script Interface](https://via.placeholder.com/800x400/2c3e50/ecf0f1?text=RS3+Cooking+Script+Interface)
+<img width="1148" height="636" alt="image" src="https://github.com/user-attachments/assets/9e2eb5d7-b5c7-4bb7-802b-297b2c581636" />
+
 
 ## ✨ Features
 
