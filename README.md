@@ -17,15 +17,14 @@ A **comprehensive, professional-grade** RuneScape 3 cooking script for the BotWi
 - **F2P & Members Support** - Complete coverage for all account types
 
 ### 🏛️ **Advanced Location System**
-- **30+ Cooking Locations** - All major RS3 cooking spots
-- **Multiple Methods** - Fires, bonfires, ranges, portable ranges, sulphur vents
+- **Cooking Locations** - Prifddinas & All Portable Range spots
+- **Multiple Methods** - Bonfires and Portable Ranges
 - **Intelligent Selection** - Automatic best location detection
 - **Bank Integration** - Optimized for banking efficiency
 
 ### 🏦 **Smart Banking System**
 - **40+ Bank Locations** - Comprehensive bank database
 - **Nearest Bank Detection** - Automatic pathfinding to closest bank
-- **Preset Support** - Bank preset integration for efficiency
 - **Intelligent Management** - Auto-deposit cooked fish, withdraw raw fish
 
 ### 🖥️ **Professional Interface**
@@ -51,7 +50,7 @@ A **comprehensive, professional-grade** RuneScape 3 cooking script for the BotWi
 ### Prerequisites
 - [BotWithUs Client](https://botwithus.net/) (latest version)
 - RuneScape 3 account
-- Java 17 or higher
+- Java 20
 - Raw fish in bank or inventory
 
 ### Installation
