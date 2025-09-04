@@ -190,7 +190,6 @@ public class RS3CookingScript extends LoopingScript {
 
         println("DEBUG: Bank is open, managing inventory...");
 
-        // Step 1: Deposit all cooked fish
         if (net.botwithus.rs3.game.inventories.Backpack.contains(cookedFishName)) {
             println("DEBUG: Depositing cooked fish: " + cookedFishName);
             if (Bank.deposit(cookedFishName, Bank.TransferAmount.ALL)) {
@@ -201,17 +200,10 @@ public class RS3CookingScript extends LoopingScript {
             }
         }
 
-        // Step 2: Deposit any other items (keep inventory clean)
-        println("DEBUG: Depositing all other items except raw fish");
-        Bank.deposit(rawFishName, Bank.TransferAmount.ALL);
-        Execution.delay(1000);
-
-        // Step 3: Withdraw raw fish for current task
         println("DEBUG: Withdrawing raw fish: " + rawFishName);
         if (Bank.withdraw(rawFishName, Bank.TransferAmount.ALL)) {
             println("DEBUG: Successfully withdrew " + rawFishName);
 
-            // Wait for fish to appear in backpack
             boolean success = Execution.delayUntil(
                 () -> {
                     boolean hasFish = net.botwithus.rs3.game.inventories.Backpack.contains(rawFishName);
