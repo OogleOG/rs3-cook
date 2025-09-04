@@ -57,7 +57,7 @@ A **comprehensive, professional-grade** RuneScape 3 cooking script for the BotWi
 ### Installation
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/rs3-cook.git
+git clone https://github.com/your-OogleOG/rs3-cook.git
 cd rs3-cook
 
 # Build the project (Windows)
