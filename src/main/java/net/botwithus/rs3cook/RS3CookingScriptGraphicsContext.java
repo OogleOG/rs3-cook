@@ -5,6 +5,7 @@ import net.botwithus.rs3.imgui.ImGuiWindowFlag;
 import net.botwithus.rs3.script.ScriptConsole;
 import net.botwithus.rs3.script.ScriptGraphicsContext;
 import net.botwithus.rs3cook.data.CookingTask;
+import net.botwithus.rs3cook.data.FishData;
 
 import java.util.List;
 
@@ -16,13 +17,11 @@ public class RS3CookingScriptGraphicsContext extends ScriptGraphicsContext {
     private int selectedFishIndex = 0;
     private int taskQuantity = 100;
 
-    private static final String[] FISH_TYPES = {
-        "Raw shrimps", "Raw anchovies", "Raw sardine", "Raw herring",
-        "Raw mackerel", "Raw trout", "Raw cod", "Raw pike", "Raw salmon",
-        "Raw tuna", "Raw lobster", "Raw bass", "Raw swordfish",
-        "Raw monkfish", "Raw karambwan", "Raw shark", "Raw cavefish",
-        "Raw rocktail", "Raw sailfish", "Raw blue blubber jellyfish"
-    };
+    // Get all fish from FishData
+    private static final List<FishData> ALL_FISH_DATA = FishData.getAllFish();
+    private static final String[] FISH_NAMES = ALL_FISH_DATA.stream()
+            .map(FishData::getRawName)
+            .toArray(String[]::new);
 
     public RS3CookingScriptGraphicsContext(ScriptConsole scriptConsole, RS3CookingScript script) {
         super(scriptConsole);
@@ -69,10 +68,6 @@ public class RS3CookingScriptGraphicsContext extends ScriptGraphicsContext {
 
                     ImGui.EndTabItem();
                 }
-
-
-
-
 
                 // STATISTICS TAB
                 if (ImGui.BeginTabItem("Statistics", ImGuiWindowFlag.None.getValue())) {
@@ -154,14 +149,23 @@ public class RS3CookingScriptGraphicsContext extends ScriptGraphicsContext {
 
         // Fish selection dropdown
         ImGui.Text("Fish Type:");
-        selectedFishIndex = ImGui.Combo("##FishType", selectedFishIndex, FISH_TYPES);
+        selectedFishIndex = ImGui.Combo("##FishType", selectedFishIndex, FISH_NAMES);
+
+        // Show fish info
+        if (selectedFishIndex >= 0 && selectedFishIndex < ALL_FISH_DATA.size()) {
+            FishData selectedFish = ALL_FISH_DATA.get(selectedFishIndex);
+            ImGui.Text("Level: " + selectedFish.getCookingLevel() + " | XP: " + selectedFish.getExperience() +
+                      " | " + (selectedFish.isMembersOnly() ? "Members" : "F2P"));
+        }
 
         ImGui.Text("Quantity:");
         taskQuantity = ImGui.InputInt("##Quantity", taskQuantity);
         if (taskQuantity < 1) taskQuantity = 1;
 
         if (ImGui.Button("Add Task")) {
-            script.addTask(FISH_TYPES[selectedFishIndex], taskQuantity);
+            if (selectedFishIndex >= 0 && selectedFishIndex < FISH_NAMES.length) {
+                script.addTask(FISH_NAMES[selectedFishIndex], taskQuantity);
+            }
         }
 
         ImGui.SameLine();
