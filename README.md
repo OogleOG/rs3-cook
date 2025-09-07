@@ -6,7 +6,8 @@
 
 A **comprehensive, professional-grade** RuneScape 3 cooking script for the BotWithUs client. Features intelligent banking, advanced safety systems, comprehensive statistics tracking, and a modern ImGui interface.
 
-![Script Interface](https://via.placeholder.com/800x400/2c3e50/ecf0f1?text=RS3+Cooking+Script+Interface)
+<img width="1148" height="636" alt="image" src="https://github.com/user-attachments/assets/9e2eb5d7-b5c7-4bb7-802b-297b2c581636" />
+
 
 ## ✨ Features
 
@@ -17,15 +18,14 @@ A **comprehensive, professional-grade** RuneScape 3 cooking script for the BotWi
 - **F2P & Members Support** - Complete coverage for all account types
 
 ### 🏛️ **Advanced Location System**
-- **30+ Cooking Locations** - All major RS3 cooking spots
-- **Multiple Methods** - Fires, bonfires, ranges, portable ranges, sulphur vents
+- **Cooking Locations** - Prifddinas & All Portable Range spots
+- **Multiple Methods** - Bonfires and Portable Ranges
 - **Intelligent Selection** - Automatic best location detection
 - **Bank Integration** - Optimized for banking efficiency
 
 ### 🏦 **Smart Banking System**
 - **40+ Bank Locations** - Comprehensive bank database
 - **Nearest Bank Detection** - Automatic pathfinding to closest bank
-- **Preset Support** - Bank preset integration for efficiency
 - **Intelligent Management** - Auto-deposit cooked fish, withdraw raw fish
 
 ### 🖥️ **Professional Interface**
@@ -51,13 +51,13 @@ A **comprehensive, professional-grade** RuneScape 3 cooking script for the BotWi
 ### Prerequisites
 - [BotWithUs Client](https://botwithus.net/) (latest version)
 - RuneScape 3 account
-- Java 17 or higher
+- Java 20
 - Raw fish in bank or inventory
 
 ### Installation
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/rs3-cook.git
+git clone https://github.com/your-OogleOG/rs3-cook.git
 cd rs3-cook
 
 # Build the project (Windows)
