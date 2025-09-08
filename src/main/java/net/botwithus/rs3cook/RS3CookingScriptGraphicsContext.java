@@ -17,8 +17,8 @@ public class RS3CookingScriptGraphicsContext extends ScriptGraphicsContext {
     @Override
     public void drawSettings() {
         // Use proper BotWithUs ImGui syntax
-        if (ImGui.Begin("RS3 Cooking Script", ImGuiWindowFlag.None.getValue())) {
-            ImGui.Text("RS3 Cooking Script - UI Test");
+        if (ImGui.Begin("Oogey Cooking", ImGuiWindowFlag.None.getValue())) {
+            ImGui.Text("Oogey Cooking");
             ImGui.Text("Status: " + script.getUiStatus());
             ImGui.Separator();
 
@@ -26,7 +26,7 @@ public class RS3CookingScriptGraphicsContext extends ScriptGraphicsContext {
 
                 // SETTINGS TAB
                 if (ImGui.BeginTabItem("Settings", ImGuiWindowFlag.None.getValue())) {
-                    ImGui.Text("RS3 Cooking Script");
+                    ImGui.Text("Oogey Cooking");
                     ImGui.Text("Status: " + script.getUiStatus());
                     ImGui.Separator();
 
