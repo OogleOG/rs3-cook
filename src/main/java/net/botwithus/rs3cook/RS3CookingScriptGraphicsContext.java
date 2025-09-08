@@ -4,24 +4,10 @@ import net.botwithus.rs3.imgui.ImGui;
 import net.botwithus.rs3.imgui.ImGuiWindowFlag;
 import net.botwithus.rs3.script.ScriptConsole;
 import net.botwithus.rs3.script.ScriptGraphicsContext;
-import net.botwithus.rs3cook.data.CookingTask;
-import net.botwithus.rs3cook.data.FishData;
-
-import java.util.List;
 
 public class RS3CookingScriptGraphicsContext extends ScriptGraphicsContext {
 
     public RS3CookingScript script;
-
-    // UI state variables
-    private int selectedFishIndex = 0;
-    private int taskQuantity = 100;
-
-    // Get all fish from FishData
-    private static final List<FishData> ALL_FISH_DATA = FishData.getAllFish();
-    private static final String[] FISH_NAMES = ALL_FISH_DATA.stream()
-            .map(FishData::getRawName)
-            .toArray(String[]::new);
 
     public RS3CookingScriptGraphicsContext(ScriptConsole scriptConsole, RS3CookingScript script) {
         super(scriptConsole);
@@ -31,33 +17,22 @@ public class RS3CookingScriptGraphicsContext extends ScriptGraphicsContext {
     @Override
     public void drawSettings() {
         // Use proper BotWithUs ImGui syntax
-        if (ImGui.Begin("Oogey Cooking", ImGuiWindowFlag.None.getValue())) {
-            ImGui.Text("Oogey Cooking");
+        if (ImGui.Begin("RS3 Cooking Script", ImGuiWindowFlag.None.getValue())) {
+            ImGui.Text("RS3 Cooking Script - UI Test");
             ImGui.Text("Status: " + script.getUiStatus());
             ImGui.Separator();
 
             if (ImGui.BeginTabBar("CookingTabs", ImGuiWindowFlag.None.getValue())) {
 
-                // TASK QUEUE TAB
-                if (ImGui.BeginTabItem("Task Queue", ImGuiWindowFlag.None.getValue())) {
-                    drawTaskQueueTab();
-                    ImGui.EndTabItem();
-                }
-
                 // SETTINGS TAB
                 if (ImGui.BeginTabItem("Settings", ImGuiWindowFlag.None.getValue())) {
-                    ImGui.Text("Oogey Cooking Settings");
+                    ImGui.Text("RS3 Cooking Script");
                     ImGui.Text("Status: " + script.getUiStatus());
                     ImGui.Separator();
 
-                    if (ImGui.Button("Portable range")) {
-                        script.setPreferredLocation("Portable range");
-                    }
-                    if (ImGui.Button("Bonfire (Priff)")) {
-                        script.setPreferredLocation("Bonfire");
-                    }
+                    ImGui.Text("Selected Fish: " + script.getSelectedFish());
+                    ImGui.Text("Cooking Method: " + script.getPreferredLocation());
 
-                    ImGui.Text("Current: " + script.getPreferredLocation());
                     ImGui.Separator();
 
                     if (!script.isEnabled()) {
@@ -69,34 +44,99 @@ public class RS3CookingScriptGraphicsContext extends ScriptGraphicsContext {
                     ImGui.EndTabItem();
                 }
 
-                // STATISTICS TAB
-                if (ImGui.BeginTabItem("Statistics", ImGuiWindowFlag.None.getValue())) {
-                    ImGui.Text("Task Progress");
+                // FISH SELECTION TAB
+                // FISH SELECTION TAB
+                if (ImGui.BeginTabItem("Fish Selection", ImGuiWindowFlag.None.getValue())) {
+                    ImGui.Text("Select which fish to cook:");
                     ImGui.Separator();
 
-                    List<CookingTask> tasks = script.getCookingTasks();
-                    if (tasks.isEmpty()) {
-                        ImGui.Text("No tasks added yet");
-                    } else {
-                        int totalTasks = tasks.size();
-                        long completedTasks = tasks.stream().mapToLong(task -> task.isCompleted() ? 1 : 0).sum();
+                    ImGui.Text("Search:");
+                    ImGui.InputText("##fishSearch", fishSearch);       // keep your existing binding
+                    ImGui.SameLine();
+                    ImGui.Checkbox("Show F2P", showF2P);
+                    ImGui.SameLine();
+                    ImGui.Checkbox("Show Members", showMembers);
 
-                        ImGui.Text("Tasks: " + completedTasks + "/" + totalTasks);
-                        ImGui.Separator();
+                    ImGui.Separator();
 
-                        for (CookingTask task : tasks) {
-                            String status = task.isCompleted() ? "✓" : "○";
-                            ImGui.Text(status + " " + task.toString());
+                    java.util.List<net.botwithus.rs3cook.data.FishData> all =
+                            new java.util.ArrayList<>(net.botwithus.rs3cook.data.FishData.getAllFish());
+                    all.sort(java.util.Comparator
+                            .comparingInt(net.botwithus.rs3cook.data.FishData::getCookingLevel)
+                            .thenComparing(net.botwithus.rs3cook.data.FishData::getRawName));
 
-                            // Progress bar for each task
-                            float progress = task.getProgressPercent();
-                            ImGui.ProgressBar(task.getFishName() + " Progress", progress, 200.0f, 20.0f);
+                    if (ImGui.BeginChild("fishList", 0, 360, true, ImGuiWindowFlag.None.getValue())) {
+
+                        // NOTE: Columns(count, id, border)
+                        ImGui.Columns(3, "fishGrid", false);
+
+                        for (var f : all) {
+                            boolean isMembers = f.isMembersOnly();
+                            if (!showMembers && isMembers) continue;
+                            if (!showF2P && !isMembers) continue;
+
+                            String raw = f.getRawName();
+                            String cooked = f.getCookedName();
+
+                            if (!fishSearch.isEmpty()) {
+                                String s = fishSearch.toLowerCase();
+                                if (!raw.toLowerCase().contains(s) && !cooked.toLowerCase().contains(s)) continue;
+                            }
+
+                            String label = raw + "##" + cooked; // unique id
+                            if (ImGui.Button(label)) {
+                                script.setSelectedFish(raw); // always RAW internally
+                            }
+                            ImGui.Text("Lvl " + f.getCookingLevel() + (isMembers ? " (P2P)" : " (F2P)"));
+
+                            ImGui.NextColumn();
                         }
+
+                        // Reset back to 1 column with the SAME id (must be non-null)
+                        ImGui.Columns(1, "fishGrid", false);
+
+                        ImGui.EndChild();
                     }
 
                     ImGui.Separator();
-                    ImGui.Text("Current Status: " + script.getUiStatus());
+                    ImGui.Text("Selected: " + script.getSelectedFish());
+
+                    ImGui.EndTabItem();
+                }
+
+                // COOKING METHOD TAB
+                if (ImGui.BeginTabItem("Cooking Method", ImGuiWindowFlag.None.getValue())) {
+                    ImGui.Text("Select your cooking method:");
+                    ImGui.Separator();
+
+                    if (ImGui.Button("Portable range")) {
+                        script.setPreferredLocation("Portable range");
+                        ImGui.Text("Selected: Portable range");
+                    }
+                    if (ImGui.Button("Bonfire (Priff)")) {
+                        script.setPreferredLocation("Bonfire");
+                        ImGui.Text("Selected: Bonfire");
+                    }
+
+                    ImGui.Separator();
+                    ImGui.Text("Current selection: " + script.getPreferredLocation());
+
+                    ImGui.EndTabItem();
+                }
+
+                // STATS TAB (lightweight)
+                if (ImGui.BeginTabItem("Statistics", ImGuiWindowFlag.None.getValue())) {
+                    ImGui.Text("Session Stats");
+                    ImGui.Separator();
+                    ImGui.Text("Selected Fish: " + script.getSelectedFish());
                     ImGui.Text("Mode: " + script.getPreferredLocation());
+                    ImGui.Text("Running: " + (script.isEnabled() ? "Yes" : "No"));
+                    ImGui.Text("Status: " + script.getUiStatus());
+
+                    ImGui.Separator();
+                    ImGui.Text("Debug Info:");
+                    ImGui.Text("Fish in backpack: " + (net.botwithus.rs3.game.inventories.Backpack.contains(script.getSelectedFish()) ? "Yes" : "No"));
+                    ImGui.Text("Bank open: " + (net.botwithus.rs3.game.inventories.Bank.isOpen() ? "Yes" : "No"));
 
                     ImGui.EndTabItem();
                 }
@@ -107,75 +147,20 @@ public class RS3CookingScriptGraphicsContext extends ScriptGraphicsContext {
         ImGui.End(); // close window
     }
 
-    private void drawTaskQueueTab() {
-        ImGui.Text("Cooking Task Queue");
-        ImGui.Separator();
-
-        // Current task display
-        CookingTask current = script.getCurrentTask();
-        if (current != null) {
-            ImGui.Text("Current Task: " + current.toString());
-            float progress = current.getProgressPercent();
-            ImGui.ProgressBar("Progress: " + (int)(progress * 100) + "%", progress, 200.0f, 20.0f);
-        } else {
-            ImGui.Text("No active task");
-        }
-
-        ImGui.Separator();
-
-        // Task list
-        ImGui.Text("Queued Tasks:");
-        List<CookingTask> tasks = script.getCookingTasks();
-
-        if (tasks.isEmpty()) {
-            ImGui.Text("No tasks in queue");
-        } else {
-            for (int i = 0; i < tasks.size(); i++) {
-                CookingTask task = tasks.get(i);
-                String status = task.isCompleted() ? "[DONE]" : "[PENDING]";
-                ImGui.Text(status + " " + task.toString());
-
-                ImGui.SameLine();
-                if (ImGui.Button("Remove##" + i)) {
-                    script.removeTask(i);
-                }
-            }
-        }
-
-        ImGui.Separator();
-
-        // Add new task
-        ImGui.Text("Add New Task:");
-
-        // Fish selection dropdown
-        ImGui.Text("Fish Type:");
-        selectedFishIndex = ImGui.Combo("##FishType", selectedFishIndex, FISH_NAMES);
-
-        // Show fish info
-        if (selectedFishIndex >= 0 && selectedFishIndex < ALL_FISH_DATA.size()) {
-            FishData selectedFish = ALL_FISH_DATA.get(selectedFishIndex);
-            ImGui.Text("Level: " + selectedFish.getCookingLevel() + " | XP: " + selectedFish.getExperience() +
-                      " | " + (selectedFish.isMembersOnly() ? "Members" : "F2P"));
-        }
-
-        ImGui.Text("Quantity:");
-        taskQuantity = ImGui.InputInt("##Quantity", taskQuantity);
-        if (taskQuantity < 1) taskQuantity = 1;
-
-        if (ImGui.Button("Add Task")) {
-            if (selectedFishIndex >= 0 && selectedFishIndex < FISH_NAMES.length) {
-                script.addTask(FISH_NAMES[selectedFishIndex], taskQuantity);
-            }
-        }
-
-        ImGui.SameLine();
-        if (ImGui.Button("Clear All Tasks")) {
-            script.clearAllTasks();
-        }
-    }
-
     @Override
     public void drawOverlay() {
         super.drawOverlay();
     }
+
+    // --- UI state ---
+    private String fishSearch = "";
+    private boolean showMembers = true;
+    private boolean showF2P = true;
+
+    // Tiny helpers
+    private static String norm(String s){ return s == null ? "" : s.trim().toLowerCase(); }
+    private static boolean containsIgnoreCase(String hay, String needle){
+        return norm(hay).contains(norm(needle));
+    }
+
 }
