@@ -234,6 +234,15 @@ public class RS3CookingScript extends LoopingScript {
         println("DEBUG: === FINDING COOKING OBJECT ===");
         println("DEBUG: Preferred location: " + preferredLocation);
 
+        if (preferredLocation.contains("Range") || "Range".equalsIgnoreCase(preferredLocation)) {
+            SceneObject RANGE = SceneObjectQuery.newQuery().name("Range").option("Cook-at").results().nearest();
+            if (RANGE != null) {
+                return RANGE;
+            } else {
+                println("The range isn't valid and/or found. Please move closer to the Range.");
+            }
+        }
+
         if ("Portable range".equalsIgnoreCase(preferredLocation) || "portable".equalsIgnoreCase(preferredLocation)) {
             println("DEBUG: Looking for portable range...");
             SceneObject pr = SceneObjectQuery.newQuery()
@@ -263,6 +272,9 @@ public class RS3CookingScript extends LoopingScript {
         if (name.contains("portable")) {
             println("DEBUG: Using 'Cook' action for portable range");
             return "Cook";
+        }
+        if (name.contains("range") || name.equalsIgnoreCase("range")) {
+            return "Cook-at";
         }
         if (name.contains("bonfire")) {
             println("DEBUG: Using 'Cook on' action for bonfire");

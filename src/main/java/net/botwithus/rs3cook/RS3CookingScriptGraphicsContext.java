@@ -109,13 +109,17 @@ public class RS3CookingScriptGraphicsContext extends ScriptGraphicsContext {
                     ImGui.Text("Select your cooking method:");
                     ImGui.Separator();
 
+                    if (ImGui.Button("Range")) {
+                        script.setPreferredLocation("Range");
+                        ImGui.Text("Selected: Range (Fort Kitchen)");
+                    }
                     if (ImGui.Button("Portable range")) {
                         script.setPreferredLocation("Portable range");
                         ImGui.Text("Selected: Portable range");
                     }
                     if (ImGui.Button("Bonfire (Priff)")) {
                         script.setPreferredLocation("Bonfire");
-                        ImGui.Text("Selected: Bonfire");
+                        ImGui.Text("Selected: Bonfire (Priff)");
                     }
 
                     ImGui.Separator();
