@@ -2,10 +2,12 @@ package net.botwithus.rs3cook;
 
 import net.botwithus.internal.scripts.ScriptDefinition;
 import net.botwithus.rs3.game.Client;
+import net.botwithus.rs3.game.Coordinate;
 import net.botwithus.rs3.game.hud.interfaces.Interfaces;
 import net.botwithus.rs3.game.inventories.Bank;
 import net.botwithus.rs3.game.queries.builders.characters.NpcQuery;
 import net.botwithus.rs3.game.queries.builders.objects.SceneObjectQuery;
+import net.botwithus.rs3.game.scene.entities.Entity;
 import net.botwithus.rs3.game.scene.entities.characters.npc.Npc;
 import net.botwithus.rs3.game.scene.entities.characters.player.LocalPlayer;
 import net.botwithus.rs3.game.scene.entities.object.SceneObject;
@@ -15,6 +17,7 @@ import net.botwithus.rs3.script.LoopingScript;
 import net.botwithus.rs3.script.config.ScriptConfig;
 
 import java.awt.event.KeyEvent;
+import java.util.List;
 
 public class RS3CookingScript extends LoopingScript {
 
@@ -88,52 +91,63 @@ public class RS3CookingScript extends LoopingScript {
     // -------------------------
     private void doBankingCycle() {
         println("DEBUG: === BANKING CYCLE START ===");
-        println("DEBUG: Looking for banker to load preset");
+        println("DEBUG: Looking for closest banking option");
 
-        // Find banker and use "Load Last Preset from" option
-        println("DEBUG: Searching for banker with 'Load Last Preset from' option...");
+        if (Client.getLocalPlayer() == null) {
+            println("DEBUG: LocalPlayer or coordinate is null");
+            return;
+        } else {
+            Client.getLocalPlayer().getCoordinate();
+        }
 
-        SceneObject BANK_CHEST = SceneObjectQuery.newQuery().name("Bank chest").results().nearest();
-        if (BANK_CHEST != null) {
-            println("Located a bank chest");
-            if (BANK_CHEST.interact("Load Last Preset from")) {
-                boolean success = Execution.delayUntil(
-                        () -> {
-                            boolean hasFish = net.botwithus.rs3.game.inventories.Backpack.contains(selectedFish);
-                            if (hasFish) println("DEBUG: Fish detected in backpack!");
-                            return hasFish;
-                        },
-                        () -> {
-                            boolean busy = localIsBusy();
-                            if (busy) println("DEBUG: Player is busy (moving/animating)");
-                            return busy;
-                        },
-                        5000
-                );
+        Coordinate playerCoord = Client.getLocalPlayer().getCoordinate();
 
-                if (success) {
-                    println("DEBUG: Preset loaded successfully!");
-                } else {
-                    println("DEBUG: Preset loading timed out or failed");
-                }
-            } else {
-                println("DEBUG: Failed to interact with banker");
+        // Find all potential banking options
+        SceneObject bankChest = SceneObjectQuery.newQuery()
+                .name("Bank chest")
+                .option("Load Last Preset from")
+                .results()
+                .nearest();
+
+        Npc banker = NpcQuery.newQuery()
+                .option("Load Last Preset from")
+                .results()
+                .nearest();
+
+        // Determine which is closest
+        Entity closestBankingOption = null;
+        double closestDistance = Double.MAX_VALUE;
+        String entityType = "";
+
+        // Check bank chest distance
+        if (bankChest != null && bankChest.getCoordinate() != null) {
+            double chestDistance = playerCoord.distanceTo(bankChest.getCoordinate());
+            if (chestDistance < closestDistance) {
+                closestDistance = chestDistance;
+                closestBankingOption = bankChest;
+                entityType = "Bank Chest";
             }
-        }
-        Npc banker = NpcQuery.newQuery().option("Load Last Preset from").results().nearest();
-        if (banker == null) {
-            println("DEBUG: No banker with preset option found, searching for any banker...");
-            banker = NpcQuery.newQuery().name("Banker").results().nearest();
+            println("DEBUG: Bank chest found at distance: " + chestDistance);
         }
 
-        if (banker != null && banker.getCoordinate() != null && Client.getLocalPlayer() != null) {
-            println("DEBUG: Found banker: " + banker.getName() + " at distance: " + banker.getCoordinate().distanceTo(Client.getLocalPlayer().getCoordinate()));
-            println("DEBUG: Attempting to interact with 'Load Last Preset from'...");
+        // Check banker distance
+        if (banker != null && banker.getCoordinate() != null) {
+            double bankerDistance = playerCoord.distanceTo(banker.getCoordinate());
+            if (bankerDistance < closestDistance) {
+                closestDistance = bankerDistance;
+                closestBankingOption = banker;
+                entityType = "Banker";
+            }
+            println("DEBUG: Banker found at distance: " + bankerDistance);
+        }
 
-            if (banker.interact("Load Last Preset from")) {
-                println("DEBUG: Interaction successful, waiting for preset to load...");
+        // Use the closest option
+        if (closestBankingOption != null) {
+            println("DEBUG: Using closest banking option: " + entityType + " at distance: " + closestDistance);
 
-                // Wait for the preset to load (inventory to change)
+            if (((net.botwithus.rs3.game.annotations.Interactable<?>) closestBankingOption).interact("Load Last Preset from")) {
+                println("DEBUG: Successfully interacted with " + entityType);
+
                 boolean success = Execution.delayUntil(
                         () -> {
                             boolean hasFish = net.botwithus.rs3.game.inventories.Backpack.contains(selectedFish);
@@ -149,20 +163,26 @@ public class RS3CookingScript extends LoopingScript {
                 );
 
                 if (success) {
-                    println("DEBUG: Preset loaded successfully!");
+                    println("DEBUG: Preset loaded successfully from " + entityType + "!");
                 } else {
                     println("DEBUG: Preset loading timed out or failed");
                 }
             } else {
-                println("DEBUG: Failed to interact with banker");
+                println("DEBUG: Failed to interact with " + entityType);
             }
         } else {
-            println("DEBUG: No banker found nearby");
+            println("DEBUG: No banking options found nearby");
+
+            // Fallback: look for any banker without preset option
+            Npc fallbackBanker = NpcQuery.newQuery().name("Banker").results().nearest();
+            if (fallbackBanker != null) {
+                println("DEBUG: Found fallback banker: " + fallbackBanker.getName());
+                // Handle fallback banking logic here
+            }
         }
 
         println("DEBUG: === BANKING CYCLE END ===");
     }
-
 
 
     // -------------------------
@@ -387,6 +407,47 @@ public class RS3CookingScript extends LoopingScript {
     public String getUiStatus() {
         if (!enabled) return "Stopped";
         return "Running";
+    }
+
+    private Entity getClosestBankingEntity() {
+        if (Client.getLocalPlayer() == null) {
+            return null;
+        } else {
+            Client.getLocalPlayer().getCoordinate();
+        }
+
+        Coordinate playerCoord = Client.getLocalPlayer().getCoordinate();
+        Entity closest = null;
+        double minDistance = Double.MAX_VALUE;
+
+        List<SceneObject> bankChests = SceneObjectQuery.newQuery()
+                .name("Bank chest")
+                .option("Load Last Preset from")
+                .results().stream().toList();
+
+        for (SceneObject chest : bankChests) {
+            if (chest.getCoordinate() != null) {
+                double distance = playerCoord.distanceTo(chest.getCoordinate());
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closest = chest;
+                }
+            }
+        }
+        List<Npc> bankers = NpcQuery.newQuery()
+                .option("Load Last Preset from")
+                .results().stream().toList();
+
+        for (Npc banker : bankers) {
+            if (banker.getCoordinate() != null) {
+                double distance = playerCoord.distanceTo(banker.getCoordinate());
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closest = banker;
+                }
+            }
+        }
+        return closest;
     }
 
     @Override
